@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+aiohttp
+openai
+python-dotenv
+pydantic
+sse-starlette
+numpy
+youtube-transcript-api
+yt-dlp
+slowapi
+tiktoken

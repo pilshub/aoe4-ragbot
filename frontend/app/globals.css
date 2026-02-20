@@ -1,0 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #0d0d12;
+  --color-foreground: #e8e0d0;
+  --color-gold: #c9a84c;
+  --color-gold-light: #e4c76b;
+  --color-gold-dark: #8a6d2b;
+  --color-parchment: #f5e6c8;
+  --color-parchment-dark: #d4b896;
+  --color-text-primary: #e8e0d0;
+  --color-text-secondary: #9a9284;
+  --color-text-dim: #7a756b;
+  --color-bg-dark: #0d0d12;
+  --color-bg-card: #1a1a24;
+  --color-bg-card-hover: #22222f;
+  --color-border: #2a2a35;
+  --color-border-gold: rgba(201, 168, 76, 0.2);
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Crimson Text', serif;
+}
+
+/* Base */
+body {
+  background: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Background image system (like aoetest) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: url('/images/bg/bg_main.webp') center/cover no-repeat;
+  z-index: -2;
+}
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, rgba(13,13,18,0.85) 0%, rgba(13,13,18,0.92) 50%, rgba(13,13,18,0.97) 100%);
+  z-index: -1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-gold-dark);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
+
+/* Gold glow animation */
+@keyframes goldPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.gold-pulse {
+  animation: goldPulse 1.5s ease-in-out infinite;
+}
+
+/* Ornamental line divider (from aoetest) */
+.ornament-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-gold-dark), transparent);
+  margin: 0.5rem 0;
+}
+
+/* Gold gradient button (from aoetest) */
+.btn-gold {
+  background: linear-gradient(180deg, var(--color-gold-light) 0%, var(--color-gold) 50%, var(--color-gold-dark) 100%);
+  color: #1a1a24;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-gold:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.3);
+}
+
+/* Card style (from aoetest) */
+.card-medieval {
+  background: rgba(26, 26, 36, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.card-medieval:hover {
+  border-color: var(--color-border-gold);
+  box-shadow: 0 0 40px rgba(201, 168, 76, 0.1);
+}
+
+/* Gold glow shadow */
+.shadow-gold {
+  box-shadow: 0 0 40px rgba(201, 168, 76, 0.15);
+}
+
+/* Markdown content styling */
+.chat-markdown h2 {
+  font-family: var(--font-heading);
+  color: var(--color-gold);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.5rem;
+}
+.chat-markdown h3 {
+  font-family: var(--font-heading);
+  color: var(--color-gold-light);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+.chat-markdown p {
+  margin: 0.25rem 0;
+  line-height: 1.7;
+}
+.chat-markdown strong {
+  color: var(--color-gold-light);
+}
+.chat-markdown ul, .chat-markdown ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+.chat-markdown li {
+  margin: 0.15rem 0;
+  line-height: 1.6;
+}
+.chat-markdown li::marker {
+  color: var(--color-gold-dark);
+}
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+.chat-markdown th {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--color-gold-light);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 2px solid var(--color-gold-dark);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.chat-markdown td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.chat-markdown tr:nth-child(even) {
+  background: rgba(201, 168, 76, 0.03);
+}
+.chat-markdown a {
+  color: var(--color-gold);
+  text-decoration: underline;
+  text-decoration-color: var(--color-gold-dark);
+  text-underline-offset: 2px;
+}
+.chat-markdown a:hover {
+  color: var(--color-gold-light);
+}
+.chat-markdown code {
+  background: rgba(26, 26, 36, 0.6);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+  border: 1px solid var(--color-border);
+}
+.chat-markdown hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-gold-dark), transparent);
+  margin: 0.75rem 0;
+}
