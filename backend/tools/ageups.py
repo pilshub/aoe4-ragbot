@@ -111,8 +111,9 @@ async def get_ageup_stats(
                     lines.append("")
 
     else:
-        # No specific civ — show summary of all civs from "total" or "age1" section
-        total = entries.get("total", entries.get("age1", []))
+        # No specific civ — show per-civ summary from "age1" (has one entry per civ)
+        # "total" only has 1 aggregate entry with empty civilization, so prefer "age1"
+        total = entries.get("age1", entries.get("total", []))
         if isinstance(total, list) and total:
             lines.append("| Civilization | Games | Win Rate | Avg Feudal | Avg Castle | Avg Imperial |")
             lines.append("|-------------|-------|----------|------------|------------|--------------|")
