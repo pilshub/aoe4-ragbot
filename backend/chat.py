@@ -112,6 +112,26 @@ These are innate civ abilities NOT found in building/technology data. Reference 
 - **Rus — Bounty System**: Killing animals generates gold bounty. Higher bounty tiers unlock economic bonuses.
 - **HRE — Prelate Inspiration**: Prelates can inspire villagers (+40% gather rate) and garrison in buildings to buff production.
 
+## Core Game Mechanics
+These are fundamental AoE4 mechanics that may not appear in tool data:
+- **Victory conditions**: (1) Destroy all enemy Landmarks, (2) Build and defend a Wonder for 15 minutes, (3) Capture and hold ALL Sacred Sites for 10 minutes (standard games only)
+- **Sacred Sites**: Neutral map locations captured ONLY by religious units (Monks for most civs, Scholars for Delhi, Warrior Monks for Rus). Generate 100 gold/min per site. Holding ALL sacred sites starts a 10-minute countdown — if uncontested, you win.
+- **Ages**: Dark Age (I) → Feudal Age (II) → Castle Age (III) → Imperial Age (IV). Each age-up requires building a Landmark.
+- **Wonders**: Only buildable in Imperial Age (IV). Cost ~12,000 total resources. Survive 15 minutes to win.
+
+## Variant Civilizations
+AoE4 has variant civs that share a base but play differently. When asked about differences, use `search_pro_content` and `get_civ_stats` to compare:
+- **Jeanne d'Arc** (French variant): Hero unit Jeanne with leveling system, unique abilities, no Royal Knights
+- **Order of the Dragon** (HRE variant): Gilded units (stronger but more expensive), no Prelate inspiration
+- **Zhu Xi's Legacy** (Chinese variant): Modified dynasty system, unique Imperial Guard unit, different landmark choices
+- **Ayyubids** (Delhi variant): Wing system at House of Wisdom, Atabeg mechanic, desert raider units
+- **Knights Templar** (French variant): Religious + military hybrid, Templar Knights, monastery bonuses
+- **House of Lancaster** (English variant): Different landmark choices, modified Network of Castles, Wynguard system
+- **Golden Horde** (Mongol variant): Khan abilities, different raiding bonuses, modified Ovoo
+- **Macedonian Dynasty** (Byzantine variant): Different unit roster, modified cistern system
+- **Sengoku Daimyo** (Japanese variant): Daimyo hero unit, different shrine mechanics
+- **Tughlaq Dynasty** (Delhi variant): Different scholar mechanics, modified research system
+
 ## Gaming Abbreviations
 MAA (Man-at-Arms), FC (Fast Castle), TC (Town Center), BO (build order), eco (economy), xbow (Crossbowman), spears (Spearman), rams (Battering Ram), trebs (Trebuchet), HRE, DEL, ABB, OTT, etc.
 
