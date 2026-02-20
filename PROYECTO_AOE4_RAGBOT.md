@@ -1,11 +1,11 @@
 # AoE4 RAGBot — Asistente IA para Age of Empires IV
 
-## Estado: FASE 2 COMPLETADA + QA TESTING (20 Febrero 2026)
+## Estado: FASE 2 COMPLETADA + QA EXHAUSTIVO + GPT-5-mini (20 Febrero 2026)
 
 ---
 
 ## Que es
-Bot IA web que responde cualquier pregunta sobre Age of Empires IV usando datos en tiempo real de 4 APIs publicas gratuitas + una base de conocimiento con transcripts de YouTube de jugadores profesionales. El LLM (GPT-4.1-mini) decide automaticamente que herramientas consultar segun la pregunta y responde con datos actuales verificados, nunca inventados.
+Bot IA web que responde cualquier pregunta sobre Age of Empires IV usando datos en tiempo real de 4 APIs publicas gratuitas + una base de conocimiento con transcripts de YouTube de jugadores profesionales. El LLM (GPT-5-mini) decide automaticamente que herramientas consultar (hasta 8 por turno) segun la pregunta y responde con datos actuales verificados, nunca inventados.
 
 ## Colaborador
 - **Vortix** — Jugador profesional de AoE4, colaborador del proyecto. Guias y validacion de contenido.
@@ -42,7 +42,7 @@ cmd //c "taskkill /PID <PID> /F"
 ---
 
 ## Stack Tecnico
-- **Backend:** Python 3.14, FastAPI, OpenAI API (GPT-4.1-mini), aiohttp, slowapi (rate limiting)
+- **Backend:** Python 3.14, FastAPI, OpenAI API (GPT-5-mini), aiohttp, slowapi (rate limiting)
 - **Frontend:** Next.js 16, React, Tailwind CSS v4, react-markdown, SSE
 - **Knowledge Base:** SQLite + numpy (embeddings vectoriales, busqueda por similitud coseno)
 - **Embeddings:** OpenAI text-embedding-3-small
@@ -95,8 +95,8 @@ cmd //c "taskkill /PID <PID> /F"
 ### Info General
 16. `search_liquipedia` — Torneos, bios de pros, resultados (rate limited: 2s entre requests)
 
-### Tool eliminada (Fase 2)
-- ~~`get_patch_notes`~~ — Sigue en el codigo pero da info limitada (solo version de patch, no notas detalladas)
+### Info General
+17. `get_patch_notes` — Version actual del patch y season (info limitada: solo numero de version, no changelog detallado)
 
 **Nota:** `get_patch_notes` esta registrada como tool 16. `search_liquipedia` es la 16 en la lista pero el total es 16 tools activas.
 
@@ -471,10 +471,10 @@ Escenario: 100 free + 20 members + 5 pro
 - Glosario de abreviaciones gaming (glossary.py)
 - Scripts de scraping, ingesta y update de knowledge base
 
-### QA Testing (20 Febrero 2026)
-14 rounds de testing automatizado (~65 queries), 13 bugs encontrados y corregidos:
+### QA Testing Exhaustivo (20 Febrero 2026)
+24 rounds de testing automatizado (~200 queries), 22 bugs encontrados y corregidos:
 
-**Bugs de game_store.py (formato de datos):**
+**Bugs de game_store.py (formato/busqueda de datos):**
 1. `format_unit()` no mostraba bonus damage (modifiers array ignorado) → Anadido parseo de modifiers con "Bonus vs [class]: +[value]"
 2. `format_building()` incompleto: faltaba garrison, armor, weapons, sight → Anadidos los 4 campos
 3. `format_technology()` no mostraba building de investigacion → Anadido campo producedBy
@@ -482,20 +482,32 @@ Escenario: 100 free + 20 members + 5 pro
 5. Busqueda por nombre no encontraba unidades navales (Atakebune, Junk) al buscar "ship" → Anadida busqueda por displayClasses cuando hay pocos resultados por nombre
 6. Springald no mostraba rol anti-siege (API no incluye bonus vs siege) → Anadido diccionario UNIT_EXTRA_INFO con info suplementaria de roles/counters
 7. Keep no explicaba mecanica de garrison damage → Anadida nota "Garrisoned units add extra arrows" + BUILDING_EXTRA_INFO dict
+8. Busqueda parcial demasiado laxa ("loom" matcheaba "bloomery") → Implementado word-boundary matching en `_search()` que requiere match al inicio de palabra
+9. `query_building_stats` no listaba tecnologias disponibles → Anadido reverse index `techs_by_building` y listado automatico de techs al consultar edificios
 
 **Bugs de aoe4world_stats.py (map stats):**
-8. `get_map_stats()` devolvia JSON crudo truncado → Reescrito con formateo markdown (tabla de civs por win rate)
-9. Key del nombre de mapa era "map" no "name" en el API → Corregido para buscar ambas keys
-10. Win rates del API ya vienen en porcentaje (53.8), no fraccion (0.53) → Corregida logica de formateo
+10. `get_map_stats()` devolvia JSON crudo truncado → Reescrito con formateo markdown (tabla de civs por win rate)
+11. Key del nombre de mapa era "map" no "name" en el API → Corregido para buscar ambas keys
+12. Win rates del API ya vienen en porcentaje (53.8), no fraccion (0.53) → Corregida logica de formateo
 
 **Bugs de tools/definitions.py:**
-11. Modo `rm_team` no existe en el API (devuelve 404) → Reemplazado por rm_2v2/rm_3v3/rm_4v4 en todos los enums
+13. Modo `rm_team` no existe en el API (devuelve 404) → Reemplazado por rm_2v2/rm_3v3/rm_4v4 en todos los enums
 
 **Bugs de aoe4world_players.py:**
-12. Player matches: API wraps players en {"player": {...}} pero codigo accedia directo → Fix con entry.get("player", entry)
+14. Player matches: API wraps players en {"player": {...}} pero codigo accedia directo → Fix con entry.get("player", entry)
 
 **Bugs de chat.py (system prompt):**
-13. Bot no reconocia civs que NO estan en AoE4 (Aztecs) → Anadida lista de 22 civs + instruccion de rechazar non-AoE4
-- Anadidas secciones: Counter Relationships, Civ Passive Bonuses, meta multi-tool instruction
+15. Bot no reconocia civs que NO estan en AoE4 (Aztecs) → Anadida lista de 22 civs + instruccion de rechazar non-AoE4
+16. Sacred Sites mecanica incorrecta → Anadida seccion "Core Game Mechanics" (victory conditions, sacred sites, ages, wonders)
+17. Variant civs respuestas vagas → Anadida seccion "Variant Civilizations" con los 10 variantes y sus diferencias
+18. Network of Castles no reconocido → Anadida seccion "Civilization Passive Bonuses" (7 civs)
+19. Meta questions pedia clarificacion en vez de responder → Cambiado a default rm_solo + instruccion de preferir responder con datos
+20. Pro opinions sin backing estadistico → Anadida instruccion de siempre combinar search_pro_content con get_civ_stats
+21. Country-specific players usaba tool equivocada → Anadida guia de get_leaderboard con country param
+22. Liquipedia pedia cual juego → Anadido default AoE4 context
 
-**Resultado final:** 3 rondas consecutivas 100% PASS (Rounds 12-14). Bot nunca inventa datos, selecciona tools correctas, combina hasta 5 tools por query, maneja espanol/ingles, abreviaciones, typos, civs invalidas, prompt injection.
+**Upgrade de modelo:**
+- GPT-4.1-mini → GPT-5-mini: Mejor multi-tool chaining (6-7 tools en queries complejas), coste similar
+- MAX_TOOL_CALLS_PER_TURN: 5 → 8
+
+**Resultado final:** Round 24 FINAL: **10/10 PASS (100%)**. Bot combina hasta 7 tools por query, maneja espanol/ingles, abreviaciones, typos, civs invalidas, prompt injection, preguntas multi-parte complejas, y counter chains de rock-paper-scissors.
