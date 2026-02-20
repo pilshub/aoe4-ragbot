@@ -30,7 +30,45 @@ class GameStore:
         self.buildings = self._index(self.buildings_raw)
         self.technologies = self._index(self.technologies_raw)
 
+        # Build reverse index: building_id -> list of techs produced there
+        self.techs_by_building = self._index_techs_by_building(self.technologies_raw)
+
         print(f"[store] Indexed {len(self.units)} units, {len(self.buildings)} buildings, {len(self.technologies)} technologies")
+
+    @staticmethod
+    def _index_techs_by_building(techs: list) -> dict[str, list]:
+        """Reverse index: building_id -> list of techs produced there."""
+        idx: dict[str, list] = {}
+        for tech in techs:
+            for building_id in (tech.get("producedBy") or []):
+                key = building_id.lower().replace("-", " ")
+                idx.setdefault(key, []).append(tech)
+        return idx
+
+    def get_techs_for_building(self, building_name: str, civ: str | None = None) -> list:
+        """Get technologies researched at a building, optionally filtered by civ."""
+        resolved = self._resolve_name(building_name)
+        techs = []
+        for key, items in self.techs_by_building.items():
+            if self._word_match(resolved, key) or self._word_match(key, resolved):
+                techs.extend(items)
+        # Filter by civ
+        if civ and techs:
+            from config import resolve_civ
+            canonical_civ = resolve_civ(civ)
+            if canonical_civ:
+                filtered = [t for t in techs if canonical_civ in (t.get("civs") or [])]
+                if filtered:
+                    techs = filtered
+        # Deduplicate
+        seen = set()
+        unique = []
+        for t in techs:
+            tid = t.get("id") or t.get("pbgid") or id(t)
+            if tid not in seen:
+                seen.add(tid)
+                unique.append(t)
+        return sorted(unique, key=lambda t: (t.get("age", 9), t.get("name", "")))
 
     def _index(self, items: list) -> dict[str, list]:
         idx: dict[str, list] = {}
@@ -52,6 +90,17 @@ class GameStore:
             return GLOSSARY[q].lower()
         return q
 
+    @staticmethod
+    def _word_match(query: str, text: str) -> bool:
+        """Check if query appears in text at a word boundary (prefix or after space)."""
+        if query == text:
+            return True
+        if text.startswith(query):
+            return True
+        if f" {query}" in text:
+            return True
+        return False
+
     def _search(self, index: dict[str, list], name: str, civ: str | None = None, raw_items: list | None = None) -> list:
         resolved = self._resolve_name(name)
         results = []
@@ -60,9 +109,11 @@ class GameStore:
         if resolved in index:
             results = index[resolved]
         else:
-            # Partial match
+            # Partial match — require word-boundary alignment
+            # This prevents "loom" matching "bloomery" while allowing
+            # "knight" matching "royal knight" and "spear" matching "spearman"
             for key, items in index.items():
-                if resolved in key or key in resolved:
+                if self._word_match(resolved, key) or self._word_match(key, resolved):
                     results.extend(items)
 
         # If few results found and raw_items available, also search by displayClasses

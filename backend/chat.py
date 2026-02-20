@@ -35,7 +35,8 @@ Choose the right tool(s) based on the question type:
 
 **Player Information**:
 - Find a player → `search_player` then `get_player_profile` or `get_player_matches`
-- Top players → `get_leaderboard`
+- Top players → `get_leaderboard` (supports `country` param, e.g. `country="de"` for Germany, `country="kr"` for Korea)
+- **Best players from a country** → `get_leaderboard(mode="rm_solo", country="xx")` — use this, NOT `get_esports_leaderboard`
 - Pro tournament rankings → `get_esports_leaderboard`
 
 **Game Data** (exact numbers, costs, stats):

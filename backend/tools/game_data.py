@@ -41,6 +41,19 @@ async def query_building_stats(name: str, civ: str | None = None) -> tuple[str, 
     for b in results[:3]:
         output.append(store.format_building(b))
 
+    # Also list technologies researched at this building
+    techs = store.get_techs_for_building(name, civ)
+    if techs:
+        tech_lines = [f"\n**Technologies available at {name.title()}:**"]
+        for t in techs[:20]:
+            t_name = t.get("name", "?")
+            t_age = t.get("age", "?")
+            t_desc = (t.get("description") or "")[:80]
+            tech_lines.append(f"- Age {t_age}: **{t_name}** — {t_desc}")
+        if len(techs) > 20:
+            tech_lines.append(f"... and {len(techs) - 20} more")
+        output.append("\n".join(tech_lines))
+
     sources = [Source(
         type="gamedata",
         title=f"Building stats: {name}",
