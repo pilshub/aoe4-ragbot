@@ -65,7 +65,7 @@ export default function ChatMessage({ message, isLatest, onFollowUp }: Props) {
               <div className="flex items-center gap-2 text-text-secondary text-sm">
                 <span className="gold-pulse text-gold">&#9679;</span>
                 <span className="font-[family-name:var(--font-body)] italic">
-                  {activeToolName ? `Querying ${activeToolName}...` : "Thinking..."}
+                  {activeToolName ? `Searching ${activeToolName}...` : "Thinking..."}
                 </span>
               </div>
             )}

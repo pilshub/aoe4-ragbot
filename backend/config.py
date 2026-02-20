@@ -7,7 +7,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # --- LLM ---
-OPENAI_MODEL = "gpt-4.1-mini"
+OPENAI_MODEL = "gpt-5-mini"
 
 # --- External API URLs ---
 AOE4WORLD_BASE = "https://aoe4world.com/api/v0"
@@ -27,7 +27,7 @@ CACHE_TTL_BUILDS = 3600     # 1 hour for build orders
 CACHE_TTL_LIQUIPEDIA = 3600 # 1 hour for liquipedia
 
 # --- Limits ---
-MAX_TOOL_CALLS_PER_TURN = 5
+MAX_TOOL_CALLS_PER_TURN = 8
 
 # --- Civilization mappings ---
 # Canonical names used by aoe4world API
