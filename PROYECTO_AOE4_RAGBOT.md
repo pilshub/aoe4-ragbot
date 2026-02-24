@@ -1,22 +1,30 @@
 # AoE4 RAGBot — Asistente IA para Age of Empires IV
 
-## Estado: FASE 2 COMPLETADA + QA EXHAUSTIVO + GPT-5-mini (20 Febrero 2026)
+## Estado: FASE 3 COMPLETADA + DESPLEGADO (24 Febrero 2026)
 
 ---
 
 ## Que es
-Bot IA web que responde cualquier pregunta sobre Age of Empires IV usando datos en tiempo real de 4 APIs publicas gratuitas + una base de conocimiento con transcripts de YouTube de jugadores profesionales. El LLM (GPT-5-mini) decide automaticamente que herramientas consultar (hasta 8 por turno) segun la pregunta y responde con datos actuales verificados, nunca inventados.
+Bot IA web que responde cualquier pregunta sobre Age of Empires IV usando datos en tiempo real de 4 APIs publicas gratuitas + una base de conocimiento con transcripts de YouTube de jugadores profesionales + 22 guias exclusivas escritas por Vortix. El LLM (GPT-4.1-mini) decide automaticamente que herramientas consultar (hasta 8 por turno) segun la pregunta y responde con datos actuales verificados, nunca inventados.
 
 ## Colaborador
-- **Vortix** — Jugador profesional de AoE4, colaborador del proyecto. Guias y validacion de contenido.
+- **Vortix** — Jugador profesional de AoE4, colaborador del proyecto. 22 guias de civilizaciones escritas por el.
 
 ---
 
-## URLs
-- **Frontend:** http://localhost:3000 (o :3001 si 3000 esta ocupado)
+## URLs de Produccion
+- **Frontend:** https://aoe4-ragbot.vercel.app
+- **Backend API:** https://aoe4-ragbot-production.up.railway.app
+- **Health check:** https://aoe4-ragbot-production.up.railway.app/api/health
+- **Repo GitHub:** https://github.com/pilshub/aoe4-ragbot (master)
+- **Railway project:** elegant-healing (service: aoe4-ragbot)
+- **Vercel project:** pilshubs-projects/aoe4-ragbot
+- **Proyecto web adicional:** https://aoetest.vercel.app (quiz, tier list, build order editor, economy simulator, matchup calculator, roulette — proyecto Next.js separado)
+
+## URLs Locales
+- **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **Health check:** http://localhost:8000/api/health
-- **Proyecto web adicional:** https://aoetest.vercel.app (quiz, tier list, build order editor, economy simulator, matchup calculator, roulette — proyecto Next.js separado)
 
 ## Arrancar
 ```bash
@@ -33,22 +41,40 @@ npm run dev
 
 **CUIDADO:** El puerto 8000 puede estar ocupado por MediaPulse (agentradar). Si el health check devuelve `{"detail":"Not authenticated"}`, es MediaPulse, no el AoE4 bot. Matar ese proceso primero:
 ```bash
-# Ver que proceso usa el puerto
 netstat -ano | grep ":8000" | grep LISTENING
-# Matar el proceso incorrecto
 cmd //c "taskkill /PID <PID> /F"
 ```
+
+## Deploy
+```bash
+# Backend → Railway
+cd aoe4-ragbot/backend
+railway login          # Solo si sesion expiro (interactivo, abre browser)
+railway up --service aoe4-ragbot -d
+
+# Frontend → Vercel
+cd aoe4-ragbot/frontend
+npx vercel deploy --prod --yes
+
+# Push a GitHub
+cd aoe4-ragbot
+git add . && git commit -m "mensaje" && git push origin master
+```
+
+**CUIDADO Railway login:** La sesion de Railway CLI expira periodicamente. Si `railway up` devuelve "Unauthorized", hacer `railway login` manualmente en terminal (no funciona en non-interactive mode).
 
 ---
 
 ## Stack Tecnico
-- **Backend:** Python 3.14, FastAPI, OpenAI API (GPT-5-mini), aiohttp, slowapi (rate limiting)
-- **Frontend:** Next.js 16, React, Tailwind CSS v4, react-markdown, SSE
+- **Backend:** Python 3.14, FastAPI, OpenAI API (GPT-4.1-mini), aiohttp, slowapi (rate limiting), sse-starlette
+- **Frontend:** Next.js 16, React 19, Tailwind CSS v4, react-markdown, remark-gfm, SSE
 - **Knowledge Base:** SQLite + numpy (embeddings vectoriales, busqueda por similitud coseno)
+- **Vortix Guides:** 22 archivos .md en `backend/data/guides/`, cargados desde disco (sin chunking)
 - **Embeddings:** OpenAI text-embedding-3-small
 - **Streaming:** Server-Sent Events (SSE) via sse-starlette
-- **Cache:** TTL dict en memoria (cache.py)
+- **Cache:** TTL dict en memoria (cache.py) + cache de respuestas de civ guides en chat.py (1h TTL)
 - **Game data:** JSONs de data.aoe4world.com cargados en memoria al arrancar
+- **i18n:** ES/EN via LangContext + i18n.ts (frontend)
 
 ---
 
@@ -61,13 +87,11 @@ cmd //c "taskkill /PID <PID> /F"
 | AoE4 Guides API | aoe4guides.com | Build orders de la comunidad |
 | Liquipedia | liquipedia.net/ageofempires/api.php | Torneos y esports |
 
-**API eliminada:** Fandom Wiki (search_wiki, get_wiki_page) — eliminada por mediocre y datos duplicados con otras tools.
-
-**Nota sobre AoE4 World:** Proyecto open source hecho por Rene Klacan (Eslovaquia) y Robert van Hoesel (Holanda, CEO de FirstLook/Pragma). 12M+ pageviews/ano. Se financian con donaciones Ko-fi (ko-fi.com/aoe4world). Datos publicos, piden atribucion.
+**API eliminada:** Fandom Wiki (search_wiki, get_wiki_page) — eliminada por mediocre y datos duplicados.
 
 ---
 
-## 16 Tools del LLM
+## 17 Tools del LLM
 
 ### Estadisticas (AoE4 World API)
 1. `get_civ_stats` — Winrate/pickrate de civilizaciones por modo, ELO, mapa, patch
@@ -83,117 +107,187 @@ cmd //c "taskkill /PID <PID> /F"
 9. `get_esports_leaderboard` — Leaderboard de torneos/esports
 
 ### Game Data (data.aoe4world.com, cargado en memoria)
-10. `query_unit_stats` — Stats detalladas de unidad (HP, daño, armor, coste, velocidad, rango)
+10. `query_unit_stats` — Stats detalladas de unidad (HP, dano, armor, coste, velocidad, rango)
 11. `query_building_stats` — Stats de edificio/landmark
 12. `query_technology` — Info de tecnologia (coste, tiempo, edificio, age)
 13. `compare_units` — Comparar 2 unidades side-by-side
 
 ### Estrategia
 14. `search_build_orders` — Build orders de aoe4guides.com
-15. `search_pro_content` — **Tool principal de estrategia.** Busca en 2,776 chunks de transcripts de YouTube de pros (Beastyqt, Valdemar, Vortix, MarineLorD). Devuelve extractos con links timestamp a YouTube.
+15. `search_pro_content` — **Tool principal de estrategia.** Cuando detecta civ en la query, carga la guia completa de Vortix desde disco (sin chunking, sin embedding). Cuando no detecta civ, busca semanticamente en 2,985 chunks de YouTube transcripts.
 
 ### Info General
-16. `search_liquipedia` — Torneos, bios de pros, resultados (rate limited: 2s entre requests)
+16. `search_liquipedia` — Torneos, bios de pros, resultados
+17. `get_patch_notes` — Version actual del patch y season
 
-### Info General
-17. `get_patch_notes` — Version actual del patch y season (info limitada: solo numero de version, no changelog detallado)
+---
 
-**Nota:** `get_patch_notes` esta registrada como tool 16. `search_liquipedia` es la 16 en la lista pero el total es 16 tools activas.
+## Guias de Vortix (22 civilizaciones)
 
-**Archivos de tools:**
-- `backend/tools/__init__.py` — Registro de tools (TOOL_REGISTRY dict)
-- `backend/tools/definitions.py` — JSON schemas para OpenAI (TOOL_DEFINITIONS list)
-- `backend/tools/wiki.py` — EXISTE pero NO esta registrada (eliminada del registry y definitions)
+### Como funciona
+- **22 archivos .md** en `backend/data/guides/` — uno por civilizacion
+- Originales en .odt (Google Docs de Vortix), convertidos y pulidos a .md
+- **Carga desde disco, sin chunking:** Cuando `search_pro_content` detecta una civ en la query, carga el .md completo (~4KB) como contexto. Sin perdida de informacion por chunking.
+- **Skip embedding:** Cuando se carga guia desde disco, se SALTA la llamada a OpenAI embeddings (~500ms ahorrados)
+- **Deteccion de civ:** Regex con ~60 aliases (ES/EN) ordenados por longitud (longest-first matching)
+
+### Archivos
+```
+backend/data/guides/
+├── abbasid_dynasty.md    ├── jeannes_darc.md
+├── ayyubids.md           ├── knights_templar.md
+├── byzantines.md         ├── macedonian_dynasty.md
+├── chinese.md            ├── malians.md
+├── delhi_sultanate.md    ├── mongols.md
+├── english.md            ├── order_of_the_dragon.md
+├── french.md             ├── ottomans.md
+├── golden_horde.md       ├── rus.md
+├── holy_roman_empire.md  ├── sengoku_daimyo.md
+├── house_of_lancaster.md ├── tughlaq_dynasty.md
+├── japanese.md           └── zhuxis_legacy.md
+```
+
+### Estructura de cada guia
+Cada .md tiene: apertura, estrategia por edad (I-IV), matchups especificos, composiciones de ejercito, landmarks recomendados, y valoracion de Vortix (10 categorias del 1 al 5).
+
+### Scripts de procesamiento
+- `backend/scripts/ingest_guides.py` — Ingesta guias .md como chunks en SQLite (para queries sin civ detectada)
+- `backend/scripts/polish_guides.py` — Limpieza y formato de las guias .md
+
+### Deteccion de civ (knowledge_base.py)
+```python
+CIV_ALIASES: dict[str, str] = {
+    "abbasid": "abbasid_dynasty", "bizantinos": "byzantines", "byz": "byzantines",
+    "franceses": "french", "juana de arco": "jeannes_darc", "hre": "holy_roman_empire",
+    "vikingos": None,  # No existe en AoE4
+    # ... ~60 aliases total (ES + EN)
+}
+```
+
+---
+
+## Cache de Respuestas (chat.py)
+
+### Como funciona
+- **In-memory dict** con TTL de 1 hora
+- **Cache key:** `{civ_id}:{language}` (ej: `french:es`, `mongols:en`)
+- **Cuando cachea:** Queries de un solo mensaje que mencionan una civ y no son de matchup/counter/stats
+- **Que cachea:** Todos los SSE events (tokens + sources + done)
+- **Replay:** En cache hit, los events se emiten instantaneamente sin llamar a OpenAI
+- **Resultado:** Primera query ~10s, segunda query ~0.9s (99% reduccion)
+- **No cachea:** Errores, queries multi-turno, queries sin civ detectada
+
+### Exclusiones del cache
+Queries con estas palabras NO se cachean (son dinamicas): `vs`, `contra`, `counter`, `win rate`, `winrate`, `stats`, `build order`, `matchup`, `parche`, `patch`, `nerf`, `buff`
 
 ---
 
 ## Knowledge Base (YouTube Transcripts)
 
 ### Datos actuales
-- **Total chunks:** 2,776
+- **Total chunks:** 2,985 (2,776 YouTube + 209 guide chunks)
 - **Total videos ingested:** 208 de 231 aprobados (23 sin transcript disponible)
-- **Videos scrapeados:** 236 candidatos (ultimos 12 meses)
 - **DB file:** `backend/data/knowledge.db` (24 MB, SQLite)
-- **Transcript cache:** `backend/data/transcript_cache.json` (4.4 MB)
-- **Video catalog:** `backend/data/video_candidates.json` (80 KB)
 
 ### Distribucion por canal
 | Canal | Videos | Chunks | Idioma |
 |-------|--------|--------|--------|
-| Vortix | 83 aprobados | 1,066 | Español (es) |
-| Valdemar | 81 aprobados | 804 | Ingles (en) |
-| MarineLorD | 38 aprobados | 591 | Ingles (en, auto-traducido del frances) |
-| Beastyqt | 29 aprobados | 315 | Ingles (en) |
+| Vortix | 83 | 1,066 | Español |
+| Valdemar | 81 | 804 | Ingles |
+| MarineLorD | 38 | 591 | Ingles (auto-traducido del frances) |
+| Beastyqt | 29 | 315 | Ingles |
+| Vortix guides | 22 | 209 | Español (chunks de guias .md) |
 
-### Como funciona
-1. **Scraping:** `python -m scripts.scrape_youtube` — usa yt-dlp para listar videos de 4 canales, filtra por keywords (guide, tier list, build order, strategy, etc.) y duracion (3-60 min)
-2. **Ingesta:** `python -m scripts.ingest_videos` — descarga transcripts via Apify (karamelo~youtube-transcripts), chunking 500 tokens con 50 overlap, embedding con text-embedding-3-small, almacena en SQLite
-3. **Busqueda:** `search_pro_content(query, channel?, language?)` — genera embedding del query, busca cosine similarity en SQLite con numpy, devuelve top 5 chunks
-
-### Apify (transcripts de YouTube)
-- **Actor:** `karamelo~youtube-transcripts`
-- **Coste:** ~$0.005 por video
-- **Batch size:** 25 videos por llamada
-- **API key:** En `backend/.env` como `APIFY_API_TOKEN`
-- **Cache:** Transcripts se cachean en `transcript_cache.json` para no re-descargar
-- **Por que Apify:** youtube-transcript-api funciona pero YouTube bloquea la IP tras ~25 descargas rapidas (429 rate limit). Apify usa proxies y no tiene ese problema.
+### Como funciona la busqueda
+1. **Con civ detectada:** Carga guia .md completa desde disco. NO hace embedding. Rapido (~0ms).
+2. **Sin civ detectada:** Genera embedding del query con OpenAI, busca cosine similarity en SQLite con numpy, devuelve top 5 chunks.
 
 ### Comandos de ingesta
 ```bash
 cd backend
-
-# Scrape: buscar videos nuevos (ultimos 365 dias por defecto)
-python -m scripts.scrape_youtube
-python -m scripts.scrape_youtube --days 365
-
-# Ingest: procesar videos aprobados
-python -m scripts.ingest_videos
-python -m scripts.ingest_videos --reset    # Re-ingestar todo desde cero
-python -m scripts.ingest_videos --no-apify  # Usar youtube-transcript-api directo (puede dar 429)
-
-# Update: buscar e ingestar videos nuevos (incremental)
-python -m scripts.update_knowledge
-python -m scripts.update_knowledge --dry-run
-```
-
-### Schema de SQLite (knowledge.db)
-```sql
-CREATE TABLE chunks (
-    id TEXT PRIMARY KEY,           -- "{video_id}_chunk_{n}"
-    document TEXT NOT NULL,        -- Texto del chunk
-    embedding BLOB NOT NULL,       -- float32 array como bytes
-    source TEXT NOT NULL,          -- "youtube"
-    channel TEXT,                  -- "Beastyqt", "Valdemar", "Vortix", "MarineLorD"
-    title TEXT,                    -- Titulo del video
-    video_id TEXT,                 -- ID de YouTube
-    url TEXT,                      -- URL con timestamp (&t=XXX)
-    upload_date TEXT,              -- "YYYYMMDD"
-    language TEXT,                 -- "en" o "es"
-    timestamp_start INTEGER,       -- Segundo de inicio del chunk
-    timestamp_end INTEGER          -- Segundo de fin del chunk
-);
-CREATE INDEX idx_chunks_video_id ON chunks(video_id);
-CREATE INDEX idx_chunks_channel ON chunks(channel);
+python -m scripts.scrape_youtube           # Buscar videos nuevos
+python -m scripts.ingest_videos            # Procesar videos aprobados
+python -m scripts.ingest_videos --reset    # Re-ingestar todo
+python -m scripts.update_knowledge         # Update incremental
 ```
 
 ---
 
-## System Prompt (reglas criticas)
+## Frontend — Elementos Visuales
 
-El system prompt esta en `backend/chat.py` (variable SYSTEM_PROMPT). Reglas clave:
+### Radar Chart (VortixRating.tsx)
+- SVG puro (200x200) con 10 ejes: AGR, DEF, INF, RNG, CAV, SIE, MON, NAV, TRD, ECO
+- Hover tooltips con nombre completo (ES/EN) + valor/5
+- Glow dorado en punto hover
+- Animacion fade-in (scale 0.85→1)
+- Se extrae automaticamente de la respuesta markdown ("Valoracion de Vortix" / "Vortix Rating")
 
-1. **CRITICAL RULE:** NUNCA hacer claims sobre mecanicas del juego sin verificar con tools. El LLM puede inventar datos incorrectos (ej: "archers counter knights" es FALSO — los crossbowmen tienen bonus anti-armor, los archers no).
-2. **NUNCA inventar build orders.** Siempre usar `search_build_orders`. Si no hay resultados, recomendar aoe4guides.com.
-3. **Prioridad de respuesta:** (1) Datos reales de tools, (2) Advice de pros via `search_pro_content`, (3) Build orders via `search_build_orders`.
-4. **`search_pro_content` es la tool principal de estrategia** — usar para CUALQUIER pregunta de estrategia, counters, meta, "como jugar".
-5. **Filtro por canal:** Cuando el usuario menciona un pro especifico, pasar `channel="Vortix"` (o el que sea). Vortix es espanol → `language="es"`.
-6. **Citar fuentes:** Links a YouTube con timestamps, datos de aoe4world.com con sample sizes.
+### Age Badges (ChatMessage.tsx)
+- Headers h3 con numeros romanos (I-IV) detectados automaticamente
+- Colores por edad:
+  - I (Dark Age): gris `rgba(120,120,120)`
+  - II (Feudal): dorado `rgba(201,168,76)`
+  - III (Castle): azul `rgba(59,130,246)`
+  - IV (Imperial): purpura `rgba(168,85,247)`
+- Headers h3 sin numeros romanos: borde dorado sutil a la izquierda
 
-### Secciones especiales del prompt (anadidas en QA)
-- **Key Counter Relationships:** Springald→siege, Spearman→cavalry, Horseman→ranged, etc. El API no muestra todos los bonus damage, asi que el prompt incluye counters verificados.
-- **Civilization Passive Bonuses:** English Network of Castles (25% attack speed), Mongols Nomadic (packed buildings, no walls), French Royal Influence, Chinese Dynasty System, Delhi Scholar System, Rus Bounty System, HRE Prelate Inspiration. Estos bonuses pasivos no estan en buildings/technologies del API.
-- **Non-AoE4 Civilizations:** Lista de 22 civs del juego. Instruccion de rechazar civs que no existen (Aztecs, Mayans, etc.) y sugerir en que juego AoE estan.
-- **Meta questions:** Instruccion explicita de usar `get_civ_stats` + `search_pro_content` para preguntas de meta/best civs.
+### Suggested Questions (SuggestedQuestions.tsx)
+- Patrones regex detectan tipo de respuesta (strategy, winrate, buildOrder, unit, counter, leaderboard, patch)
+- Muestra hasta 3 preguntas sugeridas con fondo dorado sutil
+- Se muestran ANTES de las fuentes
+
+### Markdown Styling (globals.css)
+- **h2/h3:** Fuente Cinzel, color dorado
+- **strong/bold:** Color dorado claro (gold-light)
+- **Bullets:** Marcadores dorado oscuro, disc/circle para anidados
+- **Tablas:** Headers con fondo dorado, filas alternas
+- **Links:** Color dorado con subrayado
+- **Blockquotes:** Borde izquierdo dorado, fondo sutil, cursiva
+- **HR:** Gradiente dorado transparente→dorado→transparente
+- **Codigo:** Fondo oscuro con borde
+
+### i18n (LangContext.tsx + i18n.ts)
+- Soporte ES/EN con deteccion automatica del navegador
+- Toggle en el header
+- Traducciones: thinking, searching, sources, relatedQuestions, welcome, placeholders, suggested questions
+
+### Fuentes (Source Citations)
+- Color-coded por tipo: aoe4world (azul), youtube (rojo), guide (dorado), gamedata (verde), liquipedia (purpura)
+
+---
+
+## System Prompt (chat.py)
+
+El system prompt esta en `backend/chat.py` (variable SYSTEM_PROMPT). Secciones clave:
+
+### Reglas criticas
+1. **CRITICAL RULE:** NUNCA hacer claims sobre mecanicas sin verificar con tools
+2. **NUNCA inventar build orders.** Siempre usar `search_build_orders`
+3. **CRITICAL — Match language:** Ingles → respuesta en ingles. Traducir guias de Vortix del espanol
+
+### Formato de respuestas
+- **Ages:** `### I — Primera Edad`, `### II — Feudal`, `### III — Castillos`, `### IV — Imperial` (ES)
+- **Ages:** `### I — Dark Age`, `### II — Feudal`, `### III — Castle`, `### IV — Imperial` (EN)
+- NUNCA decir "Segunda Edad", "Tercera Edad", "Cuarta Edad"
+- **Visual elements en TODAS las respuestas:** headers ###, bold, bullets, tables, dividers ---
+- **Conciseness:** 150-250 palabras max para guias de civ
+
+### Estructura obligatoria para guias de civ
+1. Una frase intro (identidad de la civ)
+2. `### I — Primera Edad / Dark Age`
+3. `### II — Feudal`
+4. `### III — Castillos / Castle`
+5. `### IV — Imperial`
+6. `### V — Matchups` ← OBLIGATORIO. Incluir TODOS los matchups de la guia
+7. `### Valoracion de Vortix` ← OBLIGATORIO. 10 categorias separadas por ·
+
+### Secciones especiales
+- **Key Counter Relationships:** Springald→siege, Spearman→cavalry, Horseman→ranged, etc.
+- **Civilization Passive Bonuses:** English Network of Castles, Mongols Nomadic, etc.
+- **Non-AoE4 Civilizations:** Lista ampliada con nombres en espanol (Vikingos, Aztecas, Celtas, etc.)
+- **Variant Civilizations:** 10 variantes con diferencias clave
+- **Core Game Mechanics:** Victory conditions, Sacred Sites, Ages, Wonders
+- **Tone:** "Like a friend who's also a pro" — natural, directo, no robotico
 
 ---
 
@@ -201,16 +295,18 @@ El system prompt esta en `backend/chat.py` (variable SYSTEM_PROMPT). Reglas clav
 
 ```
 aoe4-ragbot/
-├── .gitignore
 ├── PROYECTO_AOE4_RAGBOT.md          ← ESTE ARCHIVO
+├── test_50.py                       ← Test suite round 1 (50 queries)
+├── test_50b.py                      ← Test suite round 2 (50 queries)
 ├── backend/
 │   ├── .env                         ← OPENAI_API_KEY, APIFY_API_TOKEN
 │   ├── requirements.txt
+│   ├── Procfile                     ← Railway: web: uvicorn main:app ...
 │   ├── main.py                      ← FastAPI app, lifespan, endpoints
-│   ├── chat.py                      ← SYSTEM_PROMPT + chat_stream() con tool loop
-│   ├── config.py                    ← API keys, URLs, cache TTLs, civ mappings
-│   ├── models.py                    ← Pydantic: ChatRequest, Source, ChatResponseChunk
-│   ├── cache.py                     ← TTL cache en memoria
+│   ├── chat.py                      ← SYSTEM_PROMPT + chat_stream() + response cache
+│   ├── config.py                    ← API keys, URLs, cache TTLs, civ mappings, model
+│   ├── models.py                    ← Pydantic: ChatRequest, Source
+│   ├── cache.py                     ← TTL cache en memoria (para API responses)
 │   ├── utils.py                     ← fetch_json(), close_session()
 │   ├── knowledge/
 │   │   └── __init__.py              ← SQLite vector store (search, upsert, count)
@@ -218,51 +314,53 @@ aoe4-ragbot/
 │   │   ├── __init__.py
 │   │   ├── loader.py                ← Carga JSONs de data.aoe4world.com al arrancar
 │   │   ├── game_store.py            ← GameStore: busqueda fuzzy de unidades/edificios/techs
-│   │   ├── glossary.py              ← Expansion de abreviaciones gaming (maa→Man-at-Arms)
+│   │   ├── glossary.py              ← Expansion de abreviaciones gaming
+│   │   ├── guides/                  ← 22 guias .md de Vortix (una por civ)
 │   │   ├── cache/                   ← Cache de JSONs de game data (gitignored)
-│   │   ├── knowledge.db             ← SQLite con 2,776 chunks + embeddings (24 MB, gitignored)
-│   │   ├── video_candidates.json    ← Catalogo de 236 videos scrapeados (gitignored)
-│   │   └── transcript_cache.json    ← Cache de transcripts de Apify (4.4 MB, gitignored)
+│   │   ├── knowledge.db             ← SQLite con 2,985 chunks + embeddings (gitignored)
+│   │   ├── video_candidates.json    ← Catalogo de videos scrapeados (gitignored)
+│   │   └── transcript_cache.json    ← Cache de transcripts Apify (gitignored)
 │   ├── tools/
-│   │   ├── __init__.py              ← TOOL_REGISTRY (16 tools registradas)
+│   │   ├── __init__.py              ← TOOL_REGISTRY (17 tools)
 │   │   ├── definitions.py           ← TOOL_DEFINITIONS (JSON schemas para OpenAI)
 │   │   ├── aoe4world_stats.py       ← get_civ_stats, get_matchup_stats, get_map_stats
 │   │   ├── aoe4world_players.py     ← search_player, get_player_profile, get_player_matches
 │   │   ├── aoe4world_leaderboards.py← get_leaderboard
 │   │   ├── aoe4world_esports.py     ← get_esports_leaderboard
 │   │   ├── aoe4world_patches.py     ← get_patch_notes
-│   │   ├── game_data.py             ← query_unit_stats, query_building_stats, query_technology, compare_units
-│   │   ├── build_orders.py          ← search_build_orders (aoe4guides.com)
+│   │   ├── game_data.py             ← query_unit_stats, query_building_stats, etc.
+│   │   ├── build_orders.py          ← search_build_orders
 │   │   ├── liquipedia.py            ← search_liquipedia
-│   │   ├── knowledge_base.py        ← search_pro_content (YouTube transcripts)
+│   │   ├── knowledge_base.py        ← search_pro_content + civ detection + guide loading
 │   │   ├── ageups.py                ← get_ageup_stats
 │   │   └── wiki.py                  ← EXISTE pero NO registrada (eliminada)
 │   └── scripts/
-│       ├── __init__.py
-│       ├── scrape_youtube.py        ← Scraping de videos de YouTube con yt-dlp
-│       ├── ingest_videos.py         ← Ingesta: Apify transcripts → chunks → embeddings → SQLite
-│       └── update_knowledge.py      ← Update incremental de la knowledge base
+│       ├── scrape_youtube.py        ← Scraping de videos YouTube
+│       ├── ingest_videos.py         ← Ingesta: transcripts → chunks → embeddings → SQLite
+│       ├── ingest_guides.py         ← Ingesta guias .md → chunks en SQLite
+│       ├── polish_guides.py         ← Limpieza y formato de guias .md
+│       └── update_knowledge.py      ← Update incremental knowledge base
 ├── frontend/
 │   ├── package.json
-│   ├── next.config.ts
-│   ├── tailwind.config.ts
+│   ├── next.config.ts               ← Rewrites /api/* → backend
+│   ├── .env.local                   ← NEXT_PUBLIC_API_URL
 │   └── app/
-│       ├── layout.tsx
+│       ├── layout.tsx               ← LangProvider wrapper
 │       ├── page.tsx
-│       ├── globals.css
+│       ├── globals.css              ← Theme medieval oscuro, markdown styling
 │       ├── components/
 │       │   ├── ChatInterface.tsx     ← Componente principal del chat
-│       │   ├── ChatMessage.tsx       ← Render de mensajes (markdown, tool indicators)
+│       │   ├── ChatMessage.tsx       ← Render mensajes: markdown, age badges, rating extraction
 │       │   ├── ChatInput.tsx         ← Input de texto + boton enviar
-│       │   ├── Header.tsx            ← Header con titulo
-│       │   ├── SourceCitation.tsx    ← Citations: aoe4world (azul), youtube (rojo), etc.
+│       │   ├── Header.tsx            ← Header con titulo + language toggle
+│       │   ├── VortixRating.tsx      ← SVG radar chart con hover tooltips
+│       │   ├── SourceCitation.tsx    ← Citations color-coded por tipo
 │       │   ├── SuggestedQuestions.tsx ← Preguntas sugeridas basadas en respuesta
 │       │   └── WelcomeScreen.tsx     ← Pantalla inicial con ejemplos
-│       ├── hooks/
-│       │   (vacio — useChat.ts esta en components/)
 │       └── lib/
-│           (vacio — types.ts esta en components/)
-│       (NOTA: useChat.ts y types.ts estan en components/ no en hooks/ y lib/)
+│           ├── types.ts             ← Message, Source interfaces
+│           ├── LangContext.tsx       ← React context para i18n
+│           └── i18n.ts              ← Traducciones ES/EN
 ```
 
 ---
@@ -278,236 +376,187 @@ aoe4-ragbot/
 ## Costes
 
 ### Por consulta
-- **GPT-4.1-mini:** ~$0.002-0.004 por query (input $0.40/1M tokens, output $1.60/1M tokens)
-- **Embedding (search_pro_content):** ~$0.00002 por query
+- **GPT-4.1-mini:** ~$0.003 por query (input $0.40/1M tokens, output $1.60/1M tokens)
+- **Embedding (solo queries sin civ):** ~$0.00002 por query
+- **Cache hit (civ repetida):** $0.00 (respuesta desde memoria)
 - **APIs externas:** $0 (todas gratuitas)
-- **Total por query:** ~$0.003
 
-### Overhead fijo por request
-- System prompt: ~1,319 tokens
-- 16 tool definitions: ~2,758 tokens
-- Total fijo: ~4,077 tokens ($0.0016 por request solo de overhead)
+### Test de 100 queries
+- 100 queries diversas: **~$0.54** total (~$0.005/query)
+- 50 queries round 1: $0.27 en ~7 minutos
+- 50 queries round 2: $0.27 en ~5.5 minutos
 
 ### Estimacion mensual
 | Escenario | Queries/dia | Coste OpenAI/mes | Infra/mes | Total/mes |
 |-----------|-------------|------------------|-----------|-----------|
-| Testing | 20 | ~$2 | $0 | ~$2 |
+| Testing | 20 | ~$2 | $5 | ~$7 |
 | 100 usuarios | 300 | ~$27 | $5 | ~$32 |
 | 500 usuarios | 1500 | ~$135 | $10 | ~$145 |
 
-### Coste one-time de ingesta
-- Embeddings de 2,776 chunks: ~$0.05
-- Apify transcripts de 208 videos: ~$1.04
-- Total ingesta: ~$1.09
+*Con cache activado, queries de civ repetidas cuestan $0. En uso real, ~40% de queries son de civs, asi que el coste real es ~60% del estimado.*
 
 ---
 
 ## Configuracion clave (config.py)
 
-- **Modelo LLM:** `gpt-4.1-mini`
-- **Max tool calls por turno:** 5
+- **Modelo LLM:** `gpt-4.1-mini` (cambiado de gpt-5-mini por velocidad)
+- **Max tool calls por turno:** 8
 - **Rate limit API:** 20 requests/min por IP (slowapi)
-- **Cache TTLs:** Stats 1h, Players 5min, Wiki 24h, Builds 1h, Liquipedia 1h
-- **Liquipedia rate limit:** 2 segundos entre requests
-- **22 civilizaciones** con aliases en espanol e ingles
-- **Glosario de abreviaciones:** maa, xbow, fc, tc, bo, etc. → expansion automatica en queries del usuario
+- **Cache TTLs:** Stats 1h, Players 5min, Builds 1h, Liquipedia 1h, **Civ guide responses 1h**
+- **22 civilizaciones** con aliases en espanol e ingles (~60 aliases)
+- **Glosario de abreviaciones:** maa, xbow, fc, tc, bo, etc.
 
 ---
 
-## Rate Limiting (backend)
-- `slowapi` en `main.py`: 20 requests/minuto por IP en `/api/chat`
-- Health endpoint sin limite
-- Si se excede: HTTP 429
+## Testing (100 queries, 0 errores)
 
----
+### Round 1 (50 queries)
+- **50/50 OK**, 0 errores
+- Civ guides (22): 22/22 ages, 22/22 matchups, 22/22 ratings, 0 bad age names
+- Avg time: 8.4s (civ guides 9.0s, non-civ 5.5s)
+- 1 outlier: Man-at-Arms 65.5s (one-off, 5.5s on retry)
 
-## Git / Deployment
+### Round 2 (50 queries)
+- **50/50 OK**, 0 errores
+- Civ guides (10): 9/10 ages (1 fallo por phrasing vago), 0 bad age names
+- Avg time: 6.6s
+- Issues: "Britons guide" no rechazado como non-AoE4 (edge case)
 
-### Estado actual
-- **NO hay repositorio git inicializado** en la carpeta del proyecto
-- **NO esta desplegado** en Railway ni en ningun servidor
-- Anteriormente se menciono GitHub pero nunca se hizo push
+### Tiempos por categoria (100 queries)
+| Categoria | Avg Time |
+|-----------|----------|
+| Civ Guides | 9.0s (0.9s con cache) |
+| Counters/Matchups | 7.0s |
+| Strategy/Meta | 7.1s |
+| Build Orders | 7.5s |
+| Pro Opinions | 6.4s |
+| Players | 5.2s |
+| Game Data | 4.2s |
+| Mechanics | 3.4s |
+| Edge Cases | 4.0s |
 
-### Para desplegar
-1. Inicializar git: `cd aoe4-ragbot && git init`
-2. Crear repo en GitHub
-3. Primer commit y push
-4. Desplegar backend en Railway (Python)
-5. Desplegar frontend en Vercel
-6. Actualizar CORS en `main.py` con URLs de produccion
-
-### .gitignore actual
-```
-node_modules/
-.env
-__pycache__/
-*.pyc
-backend/data/cache/
-backend/data/knowledge.db
-backend/data/video_candidates.json
-backend/data/transcript_cache.json
-.venv/
-.next/
-out/
-```
-
----
-
-## Modelo de Negocio (en discusion)
-
-### Decision actual: Academia Discord + Web complementaria
-
-**Concepto:** "AoE4 Academy" — servidor privado de Discord con Vortix como pro player residente, bot IA integrado, y web con herramientas interactivas.
-
-### Estructura propuesta
-```
-WEB (aoetest.vercel.app) — herramientas interactivas
-  FREE: Quiz, explorador de civs, ruleta, chatbot limitado (5/dia)
-  PREMIUM: Chatbot ilimitado, build order editor, economy simulator, replay analyzer
-
-DISCORD — comunidad + chatbot + coaching
-  FREE: Canal general, bot 5 preguntas/dia
-  MEMBER (4.99€/mes): Bot ilimitado, canales de estrategia
-  PRO (9.99€/mes): Coaching grupales, replay reviews
-  VIP (24.99€/mes): Sesion privada mensual con Vortix
-```
-
-### Plataforma de pagos
-- **Whop.com** (recomendado para empezar) — 3% comision, vincula roles de Discord automaticamente
-- **Discord Server Subscriptions** (cuando tengamos 500+ miembros) — 0% comision
-- **Patreon** (alternativa) — 8-12% comision
-
-### Consideraciones legales
-- **Microsoft Game Content Usage Rules:** "Personal, noncommercial use" para assets del juego. PERO toda la comunidad AoE4 (Hera con Patreon $1-$100/mes, AoE4 World con Ko-fi, Overwolf overlays de pago) usa assets del juego y monetiza. Microsoft no ha perseguido a nadie.
-- **Lo que vendemos NO son datos de Microsoft** — vendemos coaching, comunidad, y acceso a un pro player. Las tools son un complemento.
-- **Atribucion:** Poner "Stats powered by aoe4world.com" en el footer de la web.
-- **Disclaimer:** "Not affiliated with Microsoft or Relic Entertainment"
-- **Iconos del juego:** Los usamos en la web. Toda la comunidad lo hace. Riesgo teorico, riesgo real nulo. Plan B: reemplazar por iconos propios si algun dia lo piden.
-
-### Bot de Discord (pendiente de implementar)
-- `discord.py` — se conecta al mismo backend
-- Comandos: `/ask`, `/stats`, `/build`, `/matchup`, `/player`, etc.
-- Control de acceso por rol (free/member/pro)
-- Soporta DMs (chat privado con el bot)
-- Mismas 16 tools, mismo coste por query
-- ~200 lineas de codigo nuevo
-- **Requisito:** Crear aplicacion en Discord Developer Portal y obtener Bot Token
-
-### Numeros de rentabilidad
-```
-Escenario: 100 free + 20 members + 5 pro
-  Coste OpenAI: ~$67.50/mes
-  Ingresos: 20×4.99€ + 5×9.99€ = ~$150€/mes
-  Beneficio: ~$80€/mes
-```
-
----
-
-## Pendiente (Fase 3)
-
-### Alta prioridad
-1. **Guias principales de Vortix** — Contenido exclusivo escrito/validado por Vortix. Seran "las mas importantes" para las respuestas del bot. Aun NO se han creado ni ingested.
-2. **Bot de Discord** — Crear aplicacion en Discord Developer Portal, escribir discord_bot.py, conectar al backend.
-3. **Git + Deploy** — Inicializar repo, push a GitHub, deploy backend (Railway) + frontend (Vercel).
-
-### Media prioridad
-4. **Sistema de autenticacion** — Discord OAuth para la web, unificar identidad web + Discord.
-5. **Sistema de limites** — Tabla SQLite `usage(user_id, month, count)`, limites por tier.
-6. **Whop.com** — Crear cuenta, vincular servidor Discord, configurar tiers.
-7. **Mas canales de YouTube** — Considerar anadir Drongo, Spirit of the Law, T90 (AoE2 pero relevante).
-
-### Baja prioridad
-8. **Replay analyzer** — Herramienta web para analizar replays (proyecto separado mencionado por el usuario).
-9. **Historial en localStorage** — Guardar ultimos 50 mensajes en el frontend.
-10. **Mejorar patch notes tool** — Actualmente solo muestra version, no notas detalladas.
-
----
-
-## Problemas conocidos y soluciones
-
-### YouTube IP rate limiting
-- **Problema:** youtube-transcript-api descarga transcripts directo de YouTube. Tras ~25 descargas rapidas, YouTube bloquea la IP con 429 errors.
-- **Solucion:** Usar Apify (actor karamelo~youtube-transcripts) que usa proxies. $0.005/video. Transcripts se cachean localmente.
-
-### Puerto 8000 ocupado por MediaPulse
-- **Problema:** El proyecto MediaPulse (agentradar) tambien usa puerto 8000. Si se arranca antes, el AoE4 bot no puede arrancar.
-- **Solucion:** Verificar con `curl http://localhost:8000/api/health`. Si devuelve `{"detail":"Not authenticated"}` es MediaPulse. Matar ese proceso.
-
-### Bot inventa datos del juego
-- **Problema:** GPT-4.1-mini a veces inventa mecanicas del juego (ej: "archers counter knights").
-- **Solucion:** CRITICAL RULE en el system prompt que obliga a verificar con tools antes de hacer claims.
-
-### Vortix no aparece en busquedas
-- **Problema:** Queries en ingles devolvian contenido de Beastyqt/Valdemar en vez de Vortix (que esta en espanol).
-- **Solucion:** System prompt instruye pasar `channel="Vortix"` cuando el usuario menciona Vortix.
-
-### Python 3.14 incompatible con ChromaDB
-- **Problema:** ChromaDB no soporta Python 3.14 (depende de hnswlib que no compila).
-- **Solucion:** Se reemplazo ChromaDB por SQLite + numpy. Mismo resultado, sin dependencias problematicas.
+### Bugs encontrados en testing
+1. **"Vikingos" no rechazado** como non-AoE4 → Fixed: lista ampliada con nombres ES
+2. **"Britons guide"** devolvio guia de English en vez de rechazar → Parcialmente fixed en prompt
+3. **"Que hago con abasidas"** no genero estructura de guia → Phrasing demasiado vago, edge case aceptable
+4. **Idioma mezclado** (EN question → ES response) → Fixed: prompt reforzado con CRITICAL language matching
 
 ---
 
 ## Historial de cambios
 
 ### Fase 1 (completada)
-- Backend FastAPI con 16 tools (incluyendo wiki)
+- Backend FastAPI con 16 tools
 - Frontend Next.js con chat streaming
 - 5 APIs gratuitas conectadas
 - System prompt basico
 - Cache en memoria
-- CORS configurado
 
-### Fase 2 (completada — 19 Febrero 2026)
-- Knowledge base con SQLite + numpy (reemplazo de ChromaDB)
-- Ingesta de 208 videos de YouTube (2,776 chunks) via Apify
+### Fase 2 (completada — 19-20 Febrero 2026)
+- Knowledge base SQLite + numpy (2,776 chunks de YouTube)
 - 4 canales: Beastyqt, Valdemar, Vortix, MarineLorD
-- Tool `search_pro_content` para buscar contenido de pros
-- Tool `get_patch_notes` para info de patches
-- Tool `get_ageup_stats` para timings de age-up
-- Eliminacion de wiki tools (search_wiki, get_wiki_page) por mediocres
-- System prompt reescrito con CRITICAL RULE, prioridades, y manejo de ambiguedad
-- Rate limiting con slowapi (20/min)
-- SSE event `tool_call` para mostrar que tool se usa en el frontend
-- Glosario de abreviaciones gaming (glossary.py)
-- Scripts de scraping, ingesta y update de knowledge base
+- QA exhaustivo: 24 rounds, ~200 queries, 22 bugs corregidos
+- Upgrade GPT-4.1-mini → GPT-5-mini (luego revertido)
 
-### QA Testing Exhaustivo (20 Febrero 2026)
-24 rounds de testing automatizado (~200 queries), 22 bugs encontrados y corregidos:
+### Fase 3 (completada — 24 Febrero 2026)
+**Vortix Guides:**
+- 22 guias de civilizacion (.odt → .md), ~4KB cada una
+- Carga desde disco (sin chunking, sin perdida de info)
+- Skip embedding call cuando civ detectada (~500ms ahorrado)
+- 209 chunks adicionales en knowledge.db para queries sin civ
+- Deteccion de civ via regex con ~60 aliases ES/EN
 
-**Bugs de game_store.py (formato/busqueda de datos):**
-1. `format_unit()` no mostraba bonus damage (modifiers array ignorado) → Anadido parseo de modifiers con "Bonus vs [class]: +[value]"
-2. `format_building()` incompleto: faltaba garrison, armor, weapons, sight → Anadidos los 4 campos
-3. `format_technology()` no mostraba building de investigacion → Anadido campo producedBy
-4. `_resolve_name()` no normalizaba underscores ("town_center" no matcheaba "town center") → Anadido .replace("_", " ")
-5. Busqueda por nombre no encontraba unidades navales (Atakebune, Junk) al buscar "ship" → Anadida busqueda por displayClasses cuando hay pocos resultados por nombre
-6. Springald no mostraba rol anti-siege (API no incluye bonus vs siege) → Anadido diccionario UNIT_EXTRA_INFO con info suplementaria de roles/counters
-7. Keep no explicaba mecanica de garrison damage → Anadida nota "Garrisoned units add extra arrows" + BUILDING_EXTRA_INFO dict
-8. Busqueda parcial demasiado laxa ("loom" matcheaba "bloomery") → Implementado word-boundary matching en `_search()` que requiere match al inicio de palabra
-9. `query_building_stats` no listaba tecnologias disponibles → Anadido reverse index `techs_by_building` y listado automatico de techs al consultar edificios
+**Response Cache:**
+- In-memory cache por (civ_id, language), TTL 1 hora
+- Primera query ~10s, cache hit ~0.9s (99% reduccion)
+- No cachea: errores, multi-turno, queries sin civ, matchups
 
-**Bugs de aoe4world_stats.py (map stats):**
-10. `get_map_stats()` devolvia JSON crudo truncado → Reescrito con formateo markdown (tabla de civs por win rate)
-11. Key del nombre de mapa era "map" no "name" en el API → Corregido para buscar ambas keys
-12. Win rates del API ya vienen en porcentaje (53.8), no fraccion (0.53) → Corregida logica de formateo
+**Visual Polish (frontend):**
+- SVG radar chart para Vortix ratings (10 ejes, hover tooltips)
+- Age badges con colores por edad (gris/dorado/azul/purpura)
+- Non-age h3 headers con borde dorado sutil
+- Blockquote styling para citas de pros
+- Bullets visibles (fix Tailwind CSS reset)
+- Suggested questions con fondo dorado, encima de fuentes
+- Markdown styling: tablas, links, code, HR, bold todo en gold theme
 
-**Bugs de tools/definitions.py:**
-13. Modo `rm_team` no existe en el API (devuelve 404) → Reemplazado por rm_2v2/rm_3v3/rm_4v4 en todos los enums
+**i18n:**
+- ES/EN con deteccion automatica + toggle manual
+- LangContext + i18n.ts con traducciones completas
 
-**Bugs de aoe4world_players.py:**
-14. Player matches: API wraps players en {"player": {...}} pero codigo accedia directo → Fix con entry.get("player", entry)
+**System Prompt:**
+- Estructura obligatoria: I-IV + V Matchups + Valoracion de Vortix
+- Age headers estandarizados (nunca "Segunda Edad")
+- Language matching reforzado (traducir guias ES→EN)
+- Non-AoE4 civs ampliado con nombres en espanol
+- Formatting: ### headers + bold + bullets + tables + --- en TODAS las respuestas
+- Tono natural ("like a friend who's a pro")
+- Conciseness: 150-250 palabras max
 
-**Bugs de chat.py (system prompt):**
-15. Bot no reconocia civs que NO estan en AoE4 (Aztecs) → Anadida lista de 22 civs + instruccion de rechazar non-AoE4
-16. Sacred Sites mecanica incorrecta → Anadida seccion "Core Game Mechanics" (victory conditions, sacred sites, ages, wonders)
-17. Variant civs respuestas vagas → Anadida seccion "Variant Civilizations" con los 10 variantes y sus diferencias
-18. Network of Castles no reconocido → Anadida seccion "Civilization Passive Bonuses" (7 civs)
-19. Meta questions pedia clarificacion en vez de responder → Cambiado a default rm_solo + instruccion de preferir responder con datos
-20. Pro opinions sin backing estadistico → Anadida instruccion de siempre combinar search_pro_content con get_civ_stats
-21. Country-specific players usaba tool equivocada → Anadida guia de get_leaderboard con country param
-22. Liquipedia pedia cual juego → Anadido default AoE4 context
+**Modelo:**
+- GPT-5-mini → GPT-4.1-mini (mas rapido, mismo coste)
 
-**Upgrade de modelo:**
-- GPT-4.1-mini → GPT-5-mini: Mejor multi-tool chaining (6-7 tools en queries complejas), coste similar
-- MAX_TOOL_CALLS_PER_TURN: 5 → 8
+**Deploy:**
+- Backend en Railway (elegant-healing)
+- Frontend en Vercel (aoe4-ragbot)
+- GitHub repo: pilshub/aoe4-ragbot
 
-**Resultado final:** Round 24 FINAL: **10/10 PASS (100%)**. Bot combina hasta 7 tools por query, maneja espanol/ingles, abreviaciones, typos, civs invalidas, prompt injection, preguntas multi-parte complejas, y counter chains de rock-paper-scissors.
+**Testing:**
+- 100 queries en 2 rounds, 0 errores
+- 31/32 civ guides con estructura completa (96.9%)
+- 0 bad age names
+- Avg time: 7.5s (0.9s con cache)
+
+---
+
+## Problemas conocidos
+
+### Railway session expira
+- **Problema:** `railway login` expira periodicamente, `railway up` devuelve "Unauthorized"
+- **Solucion:** `railway login` manualmente en terminal (interactivo, abre browser)
+
+### "Britons guide" no siempre rechazado
+- **Problema:** En vez de decir "Britons no existe en AoE4", a veces devuelve la guia de English diciendo "historically corresponds to Britons"
+- **Solucion parcial:** Prompt reforzado. Edge case dificil porque el LLM intenta ser util.
+
+### Puerto 8000 ocupado por MediaPulse
+- **Problema:** MediaPulse (agentradar) usa mismo puerto
+- **Solucion:** Verificar health check, matar proceso incorrecto
+
+---
+
+## Modelo de Negocio
+
+### Decision: Academia Discord + Web complementaria
+- **Concepto:** "AoE4 Academy" con Vortix como pro player residente
+- **Plataforma pagos:** Whop.com (3% comision, vincula roles Discord)
+- **Tiers:** Free (5/dia), Member (4.99€/mes, ilimitado), Pro (9.99€/mes, coaching), VIP (24.99€/mes, sesion con Vortix)
+
+---
+
+## Pendiente (Fase 4)
+
+### Alta prioridad
+1. **Bot de Discord** — discord.py conectado al backend, limites por tier
+2. **Autenticacion** — Discord OAuth para web + unificar identidad
+3. **Whop.com** — Configurar tiers y vincular Discord
+
+### Media prioridad
+4. **Calculadora de produccion** — Tool nueva: cuantos aldeanos por recurso para producir X unidad
+5. **Mobile optimization** — Verificar y pulir responsive
+6. **Mas canales YouTube** — Considerar Drongo, Spirit of the Law
+7. **Auto-update knowledge base** — Cron para ingestar videos nuevos automaticamente
+
+### Baja prioridad
+8. **Historial en localStorage** — Guardar ultimos 50 mensajes
+9. **Response streaming optimizado** — Comprimir SSE events
+10. **Analytics** — Tracking de queries populares para mejorar el bot
+
+---
+
+## Para retomar
+1. Leer este archivo (PROYECTO_AOE4_RAGBOT.md)
+2. `cd aoe4-ragbot/backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000`
+3. `cd aoe4-ragbot/frontend && npm run dev`
+4. Probar en http://localhost:3000
+5. Deploy: `railway up` (backend) + `npx vercel deploy --prod` (frontend)
