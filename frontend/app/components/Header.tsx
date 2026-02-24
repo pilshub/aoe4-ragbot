@@ -1,10 +1,14 @@
 "use client";
 
+import { useLang } from "../lib/LangContext";
+
 interface Props {
   onLogoClick?: () => void;
 }
 
 export default function Header({ onLogoClick }: Props) {
+  const { lang, t, toggleLang } = useLang();
+
   return (
     <header className="border-b border-border bg-bg-dark/80 backdrop-blur-sm sticky top-0 z-10">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -18,12 +22,25 @@ export default function Header({ onLogoClick }: Props) {
           </div>
           <div className="text-left">
             <h1 className="text-gold font-[family-name:var(--font-heading)] font-bold text-lg leading-tight tracking-wide">
-              AoE4 Bot
+              {t.headerTitle}
             </h1>
             <p className="text-text-secondary text-xs font-[family-name:var(--font-body)]">
-              Your AI Advisor for Age of Empires IV
+              {t.headerSubtitle}
             </p>
           </div>
+        </button>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Language toggle */}
+        <button
+          onClick={toggleLang}
+          className="px-2.5 py-1.5 rounded border border-border text-text-secondary text-xs
+                     hover:border-border-gold hover:text-gold transition-all cursor-pointer
+                     font-[family-name:var(--font-heading)] uppercase tracking-wider"
+        >
+          {lang === "en" ? "ES" : "EN"}
         </button>
       </div>
       {/* Ornamental gold line */}

@@ -9,6 +9,7 @@ const TYPE_STYLES: Record<string, { bg: string; label: string }> = {
   wiki:       { bg: "bg-[rgba(201,168,76,0.12)] border-[rgba(201,168,76,0.25)] text-gold-light", label: "Wiki" },
   liquipedia: { bg: "bg-[rgba(6,182,212,0.12)] border-[rgba(6,182,212,0.25)] text-[#6ad4e8]", label: "Liquipedia" },
   youtube:    { bg: "bg-[rgba(255,0,0,0.12)] border-[rgba(255,0,0,0.25)] text-[#ff6b6b]", label: "YouTube" },
+  guide:      { bg: "bg-[rgba(245,158,11,0.12)] border-[rgba(245,158,11,0.25)] text-[#fbbf24]", label: "Vortix Guide" },
 };
 
 interface Props {

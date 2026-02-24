@@ -98,6 +98,7 @@ def search(
     n_results: int = 5,
     channel: str | None = None,
     language: str | None = None,
+    video_id: str | None = None,
 ) -> list[dict]:
     """Search for the most similar chunks using cosine similarity."""
     conn = get_conn()
@@ -112,6 +113,9 @@ def search(
     if language:
         conditions.append("language = ?")
         params.append(language)
+    if video_id:
+        conditions.append("video_id = ?")
+        params.append(video_id)
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
 

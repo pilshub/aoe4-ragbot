@@ -1,19 +1,14 @@
 "use client";
 
-const EXAMPLES = [
-  { text: "What's the best counter to French Knights?", icon: "⚔" },
-  { text: "Show me English Fast Castle build orders", icon: "🏰" },
-  { text: "Who is #1 on the ranked leaderboard?", icon: "👑" },
-  { text: "Compare Longbowman vs Archer stats", icon: "🏹" },
-  { text: "What is the current win rate of Mongols?", icon: "📊" },
-  { text: "Tell me about the Ottoman civilization", icon: "✦" },
-];
+import { useLang } from "../lib/LangContext";
 
 interface Props {
   onSelect: (question: string) => void;
 }
 
 export default function WelcomeScreen({ onSelect }: Props) {
+  const { t } = useLang();
+
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-4 py-16">
       {/* Logo */}
@@ -24,17 +19,16 @@ export default function WelcomeScreen({ onSelect }: Props) {
       </div>
 
       <h2 className="text-gold font-[family-name:var(--font-heading)] font-bold text-3xl mb-2 text-center tracking-wide">
-        AoE4 Bot
+        {t.headerTitle}
       </h2>
       <div className="ornament-line w-48 my-3" />
       <p className="text-text-secondary text-base mb-10 text-center max-w-lg font-[family-name:var(--font-body)]">
-        Ask me anything about Age of Empires IV — civilizations, strategies, unit stats,
-        build orders, pro players, win rates, and more.
+        {t.welcomeDescription}
       </p>
 
       {/* Example questions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
-        {EXAMPLES.map((q) => (
+        {t.examples.map((q) => (
           <button
             key={q.text}
             onClick={() => onSelect(q.text)}

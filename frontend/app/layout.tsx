@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LangProvider } from "./lib/LangContext";
 
 export const metadata: Metadata = {
   title: "AoE4 Bot - Your AI Advisor for Age of Empires IV",
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <LangProvider>
+          {children}
+        </LangProvider>
       </body>
     </html>
   );

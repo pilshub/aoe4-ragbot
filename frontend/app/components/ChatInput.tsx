@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useLang } from "../lib/LangContext";
 
 interface Props {
   onSend: (text: string) => void;
@@ -11,6 +12,7 @@ interface Props {
 export default function ChatInput({ onSend, isLoading, onStop }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useLang();
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -42,7 +44,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about AoE4..."
+          placeholder={t.placeholder}
           rows={1}
           className="flex-1 resize-none rounded-lg bg-bg-card border border-border
                      text-text-primary placeholder-text-dim text-sm px-4 py-3
@@ -56,7 +58,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: Props) {
                        text-sm font-[family-name:var(--font-heading)] font-semibold uppercase tracking-wider
                        hover:bg-[rgba(239,68,68,0.25)] transition-colors cursor-pointer"
           >
-            Stop
+            {t.stop}
           </button>
         ) : (
           <button
@@ -65,7 +67,7 @@ export default function ChatInput({ onSend, isLoading, onStop }: Props) {
             className="btn-gold px-5 py-3 rounded-lg text-sm
                        disabled:opacity-20 disabled:cursor-not-allowed disabled:filter-none"
           >
-            Send
+            {t.send}
           </button>
         )}
       </div>

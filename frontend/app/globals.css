@@ -114,6 +114,16 @@ body::after {
 }
 
 /* Markdown content styling */
+/* Radar chart animation */
+@keyframes radarFadeIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.radar-appear {
+  animation: radarFadeIn 0.4s ease-out;
+  transform-origin: center;
+}
+
 .chat-markdown h2 {
   font-family: var(--font-heading);
   color: var(--color-gold);
@@ -135,13 +145,23 @@ body::after {
 .chat-markdown strong {
   color: var(--color-gold-light);
 }
-.chat-markdown ul, .chat-markdown ol {
+.chat-markdown ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+.chat-markdown ul ul {
+  list-style-type: circle;
+}
+.chat-markdown ol {
+  list-style-type: decimal;
   padding-left: 1.25rem;
   margin: 0.25rem 0;
 }
 .chat-markdown li {
   margin: 0.15rem 0;
   line-height: 1.6;
+  display: list-item;
 }
 .chat-markdown li::marker {
   color: var(--color-gold-dark);

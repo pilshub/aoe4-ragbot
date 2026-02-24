@@ -1,54 +1,15 @@
 "use client";
 
-const PATTERNS: Array<{ match: RegExp; suggestions: string[] }> = [
-  {
-    match: /win\s*rate|pick\s*rate|statistics|winrate/i,
-    suggestions: [
-      "Show me the matchups against the top civs",
-      "What are the best build orders for this civ?",
-      "How does this compare in team games?",
-    ],
-  },
-  {
-    match: /build\s*order|strategy|guide|opening/i,
-    suggestions: [
-      "What are the key timings for this build?",
-      "What counters this strategy?",
-      "Any pro player tips for this approach?",
-    ],
-  },
-  {
-    match: /unit|damage|armor|hitpoints|hp\b/i,
-    suggestions: [
-      "What counters this unit?",
-      "Compare this with similar units",
-      "What upgrades improve this unit?",
-    ],
-  },
-  {
-    match: /counter|weak|strong against|beats/i,
-    suggestions: [
-      "Show me a build order for this matchup",
-      "What do pro players recommend?",
-      "What's the win rate in this matchup?",
-    ],
-  },
-  {
-    match: /leaderboard|rank|top player|elo\b/i,
-    suggestions: [
-      "What civilization does the #1 player main?",
-      "Show me the esports tournament rankings",
-      "Who are the top players from Spain?",
-    ],
-  },
-  {
-    match: /patch|season|update|nerf|buff/i,
-    suggestions: [
-      "Which civs are strongest this season?",
-      "Show me the current tier list",
-      "What changed for my main civ?",
-    ],
-  },
+import { useLang } from "../lib/LangContext";
+
+const PATTERNS: Array<{ match: RegExp; key: string }> = [
+  { match: /Vortix|guía de|guide|edad|age|landmark|composición|composition|feudal|castle|imperial|### [IV]+\s*—|Matchups|Valoración/i, key: "strategy" },
+  { match: /win\s*rate|pick\s*rate|statistics|winrate|porcentaje|estadístic/i, key: "winrate" },
+  { match: /build\s*order|strategy|guide|opening|estrategia|guía|apertura/i, key: "buildOrder" },
+  { match: /unit|damage|armor|hitpoints|hp\b|unidad|daño|armadura/i, key: "unit" },
+  { match: /counter|weak|strong against|beats|contrar|débil|fuerte contra|matchup/i, key: "counter" },
+  { match: /leaderboard|rank|top player|elo\b|ranking|mejor jugador/i, key: "leaderboard" },
+  { match: /patch|season|update|nerf|buff|temporada|parche/i, key: "patch" },
 ];
 
 interface Props {
@@ -57,11 +18,16 @@ interface Props {
 }
 
 export default function SuggestedQuestions({ messageContent, onSelect }: Props) {
+  const { t } = useLang();
   const suggestions: string[] = [];
+
   for (const p of PATTERNS) {
     if (p.match.test(messageContent)) {
-      for (const s of p.suggestions) {
-        if (!suggestions.includes(s)) suggestions.push(s);
+      const group = t.suggestions[p.key as keyof typeof t.suggestions];
+      if (group) {
+        for (const s of group) {
+          if (!suggestions.includes(s)) suggestions.push(s);
+        }
       }
       if (suggestions.length >= 3) break;
     }
@@ -70,9 +36,9 @@ export default function SuggestedQuestions({ messageContent, onSelect }: Props) 
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="mt-3 pt-2 border-t border-border">
+    <div className="mt-3 pt-2.5 pb-1 px-3 -mx-1 rounded-md border-t border-border bg-[rgba(201,168,76,0.04)]">
       <p className="text-xs text-text-dim mb-1.5 font-[family-name:var(--font-heading)] uppercase tracking-wider">
-        Related Questions
+        {t.relatedQuestions}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {suggestions.slice(0, 3).map((q, i) => (

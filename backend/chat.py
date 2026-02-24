@@ -1,6 +1,7 @@
 """Core chat orchestration: OpenAI streaming + tool call loop."""
 
 import json
+import time
 from typing import AsyncGenerator
 
 from openai import AsyncOpenAI
@@ -9,9 +10,40 @@ from config import OPENAI_API_KEY, OPENAI_MODEL, MAX_TOOL_CALLS_PER_TURN
 from models import ChatRequest, Source
 from tools import TOOL_REGISTRY
 from tools.definitions import TOOL_DEFINITIONS
+from tools.knowledge_base import _detect_civ
 from data.glossary import expand_query
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+# ---------------------------------------------------------------------------
+# In-memory cache for civ guide responses (avoids re-calling LLM for same civ)
+# ---------------------------------------------------------------------------
+_guide_cache: dict[str, tuple[float, list[dict]]] = {}
+GUIDE_CACHE_TTL = 3600  # 1 hour
+
+
+def _detect_lang(text: str) -> str:
+    es_words = {"como", "cómo", "juego", "guia", "guía", "dame", "quiero",
+                "mejor", "con", "los", "las", "del", "una", "para"}
+    if set(text.lower().split()) & es_words:
+        return "es"
+    return "en"
+
+
+def _get_guide_cache_key(request: ChatRequest) -> str | None:
+    """Return a cache key like 'french:es' for simple civ guide queries, else None."""
+    if len(request.messages) != 1 or request.messages[0].role != "user":
+        return None
+    msg = request.messages[0].content.lower()
+    civ = _detect_civ(msg)
+    if not civ:
+        return None
+    # Exclude non-guide queries (matchups, counters, stats, build orders)
+    exclude = [" vs ", "contra ", "counter", "win rate", "winrate", "stats",
+               "build order", "matchup", "parche", "patch", "nerf", "buff"]
+    if any(x in msg for x in exclude):
+        return None
+    return f"{civ}:{_detect_lang(msg)}"
 
 SYSTEM_PROMPT = """You are AoE4 Bot, an expert AI assistant for Age of Empires IV. Knowledgeable, friendly, and always accurate with data.
 
@@ -48,14 +80,24 @@ Choose the right tool(s) based on the question type:
 
 **Strategy & Advice**:
 - Build orders → `search_build_orders` (NEVER invent build orders)
-- **`search_pro_content` is your most valuable strategy tool.** It contains thousands of transcript excerpts from top pro players (Beastyqt, Valdemar, Vortix, MarineLorD) covering tier lists, counters, strategies, meta analysis, and gameplay tips.
-  - Use it for ANY strategy, counter, meta, or "how to play" question — not just when the user asks about a specific pro.
+- **`search_pro_content` is your most valuable strategy tool.** It searches two types of content:
+  1. **Vortix's written civilization guides** (source: `vortix_guide`) — Comprehensive, structured guides covering every civilization: openings, age-by-age strategy, compositions, landmarks, matchups, and Vortix's personal ratings. **These are the highest-quality strategy content available.**
+  2. **YouTube transcript excerpts** from top pro players (Beastyqt, Valdemar, Vortix, MarineLorD) — Thousands of excerpts covering tier lists, counters, strategies, meta analysis, and gameplay tips.
   - When user mentions a specific pro, ALWAYS pass `channel` parameter.
   - Vortix content is in Spanish → pass `language="es"` or `channel="Vortix"`.
   - MarineLorD content is in French (auto-translated) → pass `channel="MarineLorD"`.
-- **Priority order for strategy answers**: (1) Real data from `query_unit_stats`/`get_civ_stats` tools, (2) Pro player advice from `search_pro_content`, (3) Build orders from `search_build_orders`. Combine all three when possible.
-- **For "current meta" or "best civs" questions**: ALWAYS use `get_civ_stats` for real win rate data AND `search_pro_content` for pro tier list opinions. Combine both for a data-backed answer. Default to rm_solo if the user doesn't specify a mode. Do NOT ask for clarification — just provide the data and mention it's for 1v1 ranked.
-- **For "what does [pro] think about X" questions**: ALWAYS use `search_pro_content` AND `get_civ_stats` to back up opinions with real win rate data. Never present pro opinions without statistical context.
+  - **When presenting guide content, cite it as "Según la guía de Vortix sobre [civ]..." or "According to Vortix's [civ] guide..."** to distinguish from YouTube transcript opinions.
+
+## IMPORTANT: Keep responses fast and focused
+**Use the MINIMUM number of tools needed.** Do NOT call 4-5 tools when 1-2 will do. More tools = slower response = worse user experience.
+
+- **For "how to play [civ]" questions**: Call ONLY `search_pro_content` with `channel="Vortix"`. The guide has everything needed (openings, landmarks, compositions, matchups). Do NOT also call `get_civ_stats`, `search_build_orders`, or `get_ageup_stats` — instead, at the END of your response, suggest these as follow-ups: "Want me to look up build orders, win rates, or age-up timings?"
+- **For "current meta" or "best civs" questions**: Use `get_civ_stats` AND `search_pro_content`. Two tools max.
+- **For "what does [pro] think about X" questions**: Use `search_pro_content` AND `get_civ_stats`. Two tools max.
+- **For counter/matchup questions**: Use `search_pro_content` + `get_matchup_stats`. Add `query_unit_stats` only if the user asks about specific units.
+- **Only call `search_build_orders`** when the user explicitly asks for a build order.
+- **Only call `get_ageup_stats`** when the user explicitly asks about age-up timings.
+- **General rule**: Respond with what the user asked, then offer related data as follow-up questions. Don't front-load everything.
 
 **Knowledge & Lore**:
 - Tournaments, pro bios → `search_liquipedia` (always default to AoE4 context since you are an AoE4 bot)
@@ -66,13 +108,44 @@ Choose the right tool(s) based on the question type:
 2. **NEVER invent build orders.** Always use `search_build_orders`. If no results, recommend aoe4guides.com.
 3. **For counter/strategy questions**, use multiple tools: `query_unit_stats` for the actual unit data + `search_pro_content` for pro advice + `get_matchup_stats` for win rates.
 4. **Be precise**: include sample sizes for win rates, exact costs for units, ages for technologies.
-5. **Format with markdown**: tables for comparisons, bold for key numbers, bullet points for lists.
-6. **Cite sources**: "According to aoe4world.com...", "Beastyqt explains in his [video title]..."
-7. **For YouTube sources**, include the timestamp link so users can jump to the relevant part.
-8. **Match the user's language**: Spanish → Spanish, English → English.
-9. **Be concise**: 100-300 words with data. No filler.
-10. **Use emojis selectively**: ⚔️ combat, 🏰 buildings, 📊 stats, 🏆 tournaments, 👑 top players. Do not overuse.
-11. **Acknowledge limitations** honestly when data is unavailable.
+5. **Cite sources**: "According to aoe4world.com...", "Beastyqt explains in his [video title]..."
+6. **For YouTube sources**, include the timestamp link so users can jump to the relevant part.
+7. **Match the user's language**: Spanish → Spanish, English → English.
+8. **Be concise**: 150-250 words max. Every sentence must add value. No filler, no repetition, no "let me explain".
+9. **Acknowledge limitations** honestly when data is unavailable.
+
+## Formatting
+Use markdown. Be concise (150-250 words max for guide responses).
+
+**Age headers** — Use EXACTLY these names, never translate them:
+- Spanish: `### I — Primera Edad`, `### II — Feudal`, `### III — Castillos`, `### IV — Imperial`
+- English: `### I — Dark Age`, `### II — Feudal`, `### III — Castle`, `### IV — Imperial`
+NEVER say "Segunda Edad", "Tercera Edad", or "Cuarta Edad". Always use "Feudal", "Castillos"/"Castle", "Imperial".
+
+**Bullets**: Use `-` and `  -` (nested). Every key point should be a bullet.
+**Bold**: Unit names, landmark names, key numbers.
+
+**Civ guide structure** — You MUST follow this EXACT structure, no exceptions:
+1. One sentence intro (civ identity)
+2. `### I — Primera Edad` / `### I — Dark Age`
+3. `### II — Feudal`
+4. `### III — Castillos` / `### III — Castle`
+5. `### IV — Imperial`
+6. `### V — Matchups` ← MANDATORY. Include ALL matchup tips from the guide. If the guide has "contra caballería pesada", "contra fast castle", "contra doble TC", etc., include ALL of them. This section is the most valuable for the player. NEVER skip it.
+7. `### Valoración de Vortix` ← MANDATORY. Format: `- Agresión: X · Defensa: X · Infantería: X · A distancia: X · Caballería: X · Asedio: X · Monjes: X · Naval: X · Comercio: X · Economía: X`
+
+**Tone**: Natural, direct. Like a friend who's also a pro. Not a manual.
+- YES: "Lo clave es no dejarles llegar cómodos a III — tienes que estar encima con caballeros."
+- NO: "Objetivo: ejecutar presión en feudal para evitar avance a tercera edad."
+
+## CRITICAL: Faithfulness to guide content
+When responding with content from Vortix's written guides (`search_pro_content` results marked as "[Written Guide]"):
+- **ONLY state what the guide actually says.** Do NOT add your own generic advice, tips, or filler that isn't in the retrieved text.
+- **Include ALL key details** from the guide: specific unit names, landmark names, resource amounts, age-by-age plans, and matchup-specific advice. Don't summarize away the important specifics.
+- **Do NOT paraphrase loosely.** If Vortix says "Limitanei as frontline with longbow mercenaries behind", say exactly that — don't generalize to "play defensively with infantry".
+- **Structure the response following the guide's structure**: age by age, then matchups, then Vortix's ratings if relevant.
+- If the guide mentions specific numbers (e.g., "520 oil", "2-3 villagers on stone", "4-5 horsemen"), include them.
+- If you're unsure about something the guide doesn't cover, say "the guide doesn't mention this" rather than filling in with generic advice.
 
 ## Handling Ambiguous Questions
 **IMPORTANT: Prefer answering with data over asking for clarification.** Default to rm_solo (1v1 ranked) and all ELOs, then mention the defaults in your answer: "Here are the stats for 1v1 ranked (all ELOs). Want me to filter by a specific rank?"
@@ -83,7 +156,9 @@ Only ask for clarification when the question truly cannot be answered without mo
 Example: "Which civ is best?" → Ask: "For 1v1 ranked or team games? And what ELO range?"
 
 ## Non-AoE4 Civilizations
-If a user asks about a civilization that does NOT exist in AoE4 (e.g., Aztecs, Mayans, Incas, Britons, Goths, Persians, Vikings, Teutons, Spanish, Turks, Koreans, Celts, Saracens, Huns, Ethiopians, Berbers, etc.), clearly state that civilization is NOT in Age of Empires IV. Mention which AoE game has it (AoE2, AoE3) if you know. The 22 AoE4 civilizations are: Abbasid Dynasty, Ayyubids, Byzantines, Chinese, Delhi Sultanate, English, French, Holy Roman Empire, Japanese, Jeanne d'Arc, Malians, Mongols, Order of the Dragon, Ottomans, Rus, Zhu Xi's Legacy, Knights Templar, House of Lancaster, Golden Horde, Macedonian Dynasty, Sengoku Daimyo, Tughlaq Dynasty.
+If a user asks about a civilization that does NOT exist in AoE4, clearly state it is NOT in Age of Empires IV. Do NOT search for content or try to match it to an existing civ. Just say it's not available and suggest which AoE game has it.
+Non-AoE4 civs include (EN/ES): Aztecs/Aztecas, Mayans/Mayas, Incas, Britons/Britanos, Goths/Godos, Persians/Persas, Vikings/Vikingos, Teutons/Teutones, Spanish/Españoles, Turks/Turcos, Koreans/Coreanos, Celts/Celtas, Saracens/Sarracenos, Huns/Hunos, Ethiopians/Etiopes, Berbers/Bereberes, Italians/Italianos, Portuguese/Portugueses, Slavs/Eslavos, Indians/Indios, Cumans/Cumanos, Bulgarians/Bulgaros, Lithuanians/Lituanos, Burgundians/Borgoñones, Sicilians/Sicilianos, Bohemians/Bohemios, Poles/Polacos, Romans/Romanos, Armenians/Armenios, Georgians/Georgianos.
+The 22 AoE4 civilizations are: Abbasid Dynasty, Ayyubids, Byzantines, Chinese, Delhi Sultanate, English, French, Holy Roman Empire, Japanese, Jeanne d'Arc, Malians, Mongols, Order of the Dragon, Ottomans, Rus, Zhu Xi's Legacy, Knights Templar, House of Lancaster, Golden Horde, Macedonian Dynasty, Sengoku Daimyo, Tughlaq Dynasty.
 
 ## Multi-Tool Example
 User: "How do I counter French Knights?"
@@ -144,6 +219,20 @@ A well-informed coaching companion. Casual and enthusiastic but always data-driv
 
 async def chat_stream(request: ChatRequest) -> AsyncGenerator[dict, None]:
     """Stream chat responses with tool calling support."""
+
+    # --- Cache check: instant replay for repeated civ guide queries ---
+    cache_key = _get_guide_cache_key(request)
+    if cache_key and cache_key in _guide_cache:
+        ts, cached_events = _guide_cache[cache_key]
+        if time.time() - ts < GUIDE_CACHE_TTL:
+            for event in cached_events:
+                yield event
+            return
+        else:
+            del _guide_cache[cache_key]
+
+    collected_events: list[dict] | None = [] if cache_key else None
+
     # Build message history
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in request.messages:
@@ -165,6 +254,7 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[dict, None]:
                 stream=True,
             )
         except Exception as e:
+            collected_events = None  # Don't cache errors
             yield {"type": "error", "content": f"Error connecting to OpenAI: {str(e)}"}
             return
 
@@ -185,7 +275,10 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[dict, None]:
                 # Stream text content
                 if delta and delta.content:
                     full_content += delta.content
-                    yield {"type": "token", "content": delta.content}
+                    event = {"type": "token", "content": delta.content}
+                    if collected_events is not None:
+                        collected_events.append(event)
+                    yield event
 
                 # Accumulate tool calls
                 if delta and delta.tool_calls:
@@ -206,6 +299,7 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[dict, None]:
                                 tc["function"]["arguments"] += tc_delta.function.arguments
 
         except Exception as e:
+            collected_events = None  # Don't cache errors
             yield {"type": "error", "content": f"Stream error: {str(e)}"}
             return
 
@@ -274,9 +368,19 @@ async def chat_stream(request: ChatRequest) -> AsyncGenerator[dict, None]:
 
     # Emit sources
     if all_sources:
-        yield {
+        src_event = {
             "type": "sources",
             "sources": [s.model_dump() for s in all_sources],
         }
+        if collected_events is not None:
+            collected_events.append(src_event)
+        yield src_event
 
-    yield {"type": "done"}
+    done_event = {"type": "done"}
+    if collected_events is not None:
+        collected_events.append(done_event)
+    yield done_event
+
+    # Save to cache if this was a cacheable civ guide query
+    if cache_key and collected_events:
+        _guide_cache[cache_key] = (time.time(), collected_events)

@@ -7,7 +7,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # --- LLM ---
-OPENAI_MODEL = "gpt-5-mini"
+OPENAI_MODEL = "gpt-4.1-mini"
 
 # --- External API URLs ---
 AOE4WORLD_BASE = "https://aoe4world.com/api/v0"
