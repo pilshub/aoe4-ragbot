@@ -46,7 +46,19 @@ const markdownComponents: Components = {
         </h3>
       );
     }
-    return <h3 {...props}>{children}</h3>;
+    // Non-age h3 headers (Stats, Strategy, Matchup, etc.) — subtle gold style
+    return (
+      <h3
+        {...props}
+        style={{
+          borderLeft: "3px solid rgba(201,168,76,0.3)",
+          paddingLeft: "0.75rem",
+          margin: "0.6rem 0 0.3rem",
+        }}
+      >
+        {children}
+      </h3>
+    );
   },
 };
 

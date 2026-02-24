@@ -213,3 +213,16 @@ body::after {
   background: linear-gradient(90deg, transparent, var(--color-gold-dark), transparent);
   margin: 0.75rem 0;
 }
+.chat-markdown blockquote {
+  border-left: 3px solid var(--color-gold-dark);
+  padding: 0.4rem 0.75rem;
+  margin: 0.4rem 0;
+  background: rgba(201, 168, 76, 0.05);
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+.chat-markdown blockquote strong {
+  color: var(--color-gold);
+  font-style: normal;
+}
